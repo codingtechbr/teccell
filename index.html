@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>TechStore PDV | Sistema de Loja e Assistência Técnica</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ===================== TELA DE LOGIN ===================== -->
+<div id="tela-login" class="tela-login">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="brand-mark">TS</div>
+      <h1>TechStore <span>PDV</span></h1>
+      <p>Sistema de Vendas &amp; Assistência Técnica</p>
+    </div>
+    <form id="form-login" class="login-form">
+      <label>Usuário</label>
+      <input type="text" id="login-usuario" placeholder="usuario" autocomplete="username" required>
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password" required>
+      <div id="login-erro" class="login-erro"></div>
+      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+    </form>
+    <div class="login-hint">
+      <p>Primeiro acesso? Crie o usuário administrador padrão:</p>
+      <button id="btn-criar-admin" class="btn btn-ghost btn-block">Criar acesso admin (admin / admin123)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== APP PRINCIPAL ===================== -->
+<div id="app" class="app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark small">TS</div>
+      <div>
+        <strong id="nome-loja-side">TechStore</strong>
+        <span>PDV &amp; Assistência</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-view="dashboard"><i data-ico="grid"></i>Dashboard</button>
+      <button class="nav-item" data-view="pdv"><i data-ico="cart"></i>PDV / Vendas</button>
+      <button class="nav-item" data-view="os"><i data-ico="tool"></i>Ordens de Serviço</button>
+      <button class="nav-item" data-view="produtos"><i data-ico="box"></i>Produtos / Estoque</button>
+      <button class="nav-item" data-view="clientes"><i data-ico="user"></i>Clientes</button>
+      <button class="nav-item" data-view="caixa"><i data-ico="cash"></i>Caixa</button>
+      <button class="nav-item" data-view="relatorios"><i data-ico="chart"></i>Relatórios</button>
+      <button class="nav-item" data-view="config"><i data-ico="gear"></i>Configurações</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">A</div>
+      <div class="user-info">
+        <strong id="user-nome">—</strong>
+        <span id="user-nivel">—</span>
+      </div>
+      <button id="btn-logout" title="Sair">⏻</button>
+    </div>
+  </aside>
+
+  <!-- TOPBAR MOBILE -->
+  <header class="topbar-mobile">
+    <button id="btn-menu-mobile">☰</button>
+    <span id="topo-titulo-mobile">Dashboard</span>
+    <button id="btn-logout-mobile">⏻</button>
+  </header>
+
+  <div class="overlay" id="overlay-mobile"></div>
+
+  <!-- CONTEÚDO -->
+  <main class="conteudo">
+
+    <!-- ===== DASHBOARD ===== -->
+    <section class="view active" id="view-dashboard">
+      <div class="view-header">
+        <div>
+          <h2>Dashboard</h2>
+          <p class="subtitulo">Visão geral da loja hoje</p>
+        </div>
+      </div>
+      <div class="cards-grid" id="dash-cards"></div>
+      <div class="dash-grid-2">
+        <div class="card">
+          <h3>Faturamento (7 dias)</h3>
+          <div id="dash-grafico" class="mini-bar-chart"></div>
+        </div>
+        <div class="card">
+          <h3>Estoque baixo</h3>
+          <div id="dash-estoque-baixo" class="lista-simples"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PDV ===== -->
+    <section class="view" id="view-pdv">
+      <div class="pdv-wrap">
+        <div class="pdv-header">
+          <div class="pdv-header-info">
+            <div><span>Pedido Nº</span><strong id="pdv-numero-pedido">—</strong></div>
+            <div><span>Data</span><strong id="pdv-data">—</strong></div>
+            <div><span>Operador</span><strong id="pdv-operador">—</strong></div>
+          </div>
+          <div class="pdv-cliente">
+            <label>Cliente</label>
+            <div class="pdv-cliente-linha">
+              <input type="text" id="pdv-cliente-busca" placeholder="Código, CPF ou nome do cliente...">
+              <button class="btn btn-ghost" id="btn-pdv-cadastrar-cliente">+ Cliente</button>
+            </div>
+            <div id="pdv-cliente-selecionado" class="pdv-cliente-tag"></div>
+          </div>
+        </div>
+
+        <div class="pdv-busca-produto">
+          <input type="text" id="pdv-busca-produto" placeholder="🔍 Buscar por código de barras ou nome do produto (Enter para adicionar)">
+          <button class="btn btn-ghost" id="btn-pdv-item-avulso">Item avulso</button>
+          <button class="btn btn-ghost" id="btn-pdv-lista-produtos">Lista de produtos</button>
+        </div>
+        <div id="pdv-sugestoes" class="pdv-sugestoes hidden"></div>
+
+        <div class="pdv-tabela-wrap">
+          <table class="pdv-tabela">
+            <thead>
+              <tr><th>Produto</th><th>Qtd</th><th>Valor Unit.</th><th>Subtotal</th><th></th></tr>
+            </thead>
+            <tbody id="pdv-itens-body"></tbody>
+          </table>
+          <div id="pdv-vazio" class="pdv-vazio">Nenhum item adicionado ainda.</div>
+        </div>
+
+        <div class="pdv-footer">
+          <div class="pdv-pagamento">
+            <label>Forma de pagamento</label>
+            <div class="pdv-pagto-opcoes" id="pdv-pagto-opcoes">
+              <button class="pagto-btn active" data-pagto="Dinheiro">💵 Dinheiro</button>
+              <button class="pagto-btn" data-pagto="PIX">📱 PIX</button>
+              <button class="pagto-btn" data-pagto="Cartão Débito">💳 Débito</button>
+              <button class="pagto-btn" data-pagto="Cartão Crédito">💳 Crédito</button>
+            </div>
+          </div>
+          <div class="pdv-totais">
+            <div><span>Total geral</span><strong id="pdv-total">R$ 0,00</strong></div>
+          </div>
+        </div>
+
+        <div class="pdv-botoes">
+          <button class="btn btn-outline" id="btn-pdv-orcamento">Orçamento</button>
+          <button class="btn btn-outline" id="btn-pdv-ver-caixa">Ver caixa</button>
+          <button class="btn btn-outline" id="btn-pdv-hist-vendas">Histórico de vendas</button>
+          <button class="btn btn-outline" id="btn-pdv-cadastrar-produto">Cadastrar produto</button>
+          <button class="btn btn-danger" id="btn-pdv-fechar">Fechar PDV</button>
+          <button class="btn btn-primary btn-lg" id="btn-pdv-finalizar">Finalizar venda</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ORDENS DE SERVIÇO ===== -->
+    <section class="view" id="view-os">
+      <div class="view-header">
+        <div>
+          <h2>Ordens de Serviço</h2>
+          <p class="subtitulo">Gestão de consertos e assistência técnica</p>
+        </div>
+        <button class="btn btn-primary" id="btn-nova-os">+ Nova OS</button>
+      </div>
+      <div class="filtros-linha">
+        <input type="text" id="os-busca" placeholder="Buscar por nº OS, cliente ou aparelho...">
+        <select id="os-filtro-status">
+          <option value="">Todos os status</option>
+          <option>Aberta</option>
+          <option>Em análise</option>
+          <option>Aguardando peça</option>
+          <option>Em manutenção</option>
+          <option>Pronto</option>
+          <option>Entregue</option>
+          <option>Cancelada</option>
+        </select>
+      </div>
+      <div class="tabela-wrap">
+        <table class="tabela-padrao">
+          <thead><tr><th>Nº OS</th><th>Data</th><th>Cliente</th><th>Aparelho</th><th>Status</th><th>Total</th><th>Ações</th></tr></thead>
+          <tbody id="os-lista-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== PRODUTOS ===== -->
+    <section class="view" id="view-produtos">
+      <div class="view-header">
+        <div>
+          <h2>Produtos / Estoque</h2>
+          <p class="subtitulo">Cadastro e controle de estoque</p>
+        </div>
+        <button class="btn btn-primary" id="btn-novo-produto">+ Novo Produto</button>
+      </div>
+      <div class="filtros-linha">
+        <input type="text" id="produto-busca" placeholder="Buscar por nome, código ou categoria...">
+        <button class="btn btn-ghost" id="btn-entrada-estoque">Entrada de estoque</button>
+        <button class="btn btn-ghost" id="btn-saida-estoque">Saída manual</button>
+        <button class="btn btn-ghost" id="btn-hist-estoque">Histórico</button>
+      </div>
+      <div class="tabela-wrap">
+        <table class="tabela-padrao">
+          <thead><tr><th>Produto</th><th>Cód. Barras</th><th>Categoria</th><th>Custo</th><th>Venda</th><th>Estoque</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="produtos-lista-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== CLIENTES ===== -->
+    <section class="view" id="view-clientes">
+      <div class="view-header">
+        <div>
+          <h2>Clientes</h2>
+          <p class="subtitulo">Cadastro e histórico de clientes</p>
+        </div>
+        <button class="btn btn-primary" id="btn-novo-cliente">+ Novo Cliente</button>
+      </div>
+      <div class="filtros-linha">
+        <input type="text" id="cliente-busca" placeholder="Buscar por nome, CPF ou telefone...">
+      </div>
+      <div class="tabela-wrap">
+        <table class="tabela-padrao">
+          <thead><tr><th>Nome</th><th>CPF/CNPJ</th><th>Telefone</th><th>WhatsApp</th><th>Cidade</th><th>Ações</th></tr></thead>
+          <tbody id="clientes-lista-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== CAIXA ===== -->
+    <section class="view" id="view-caixa">
+      <div class="view-header">
+        <div>
+          <h2>Caixa</h2>
+          <p class="subtitulo">Controle de abertura, sangria e fechamento</p>
+        </div>
+        <div id="caixa-status-badge" class="badge">Fechado</div>
+      </div>
+      <div class="cards-grid" id="caixa-resumo-cards"></div>
+      <div class="caixa-acoes">
+        <button class="btn btn-primary" id="btn-abrir-caixa">Abrir caixa</button>
+        <button class="btn btn-outline" id="btn-suprimento">+ Suprimento</button>
+        <button class="btn btn-outline" id="btn-sangria">− Sangria</button>
+        <button class="btn btn-outline" id="btn-historico-caixa">Histórico de fechamentos</button>
+        <button class="btn btn-danger" id="btn-fechar-caixa">Fechar caixa</button>
+      </div>
+      <div class="tabela-wrap">
+        <table class="tabela-padrao">
+          <thead><tr><th>Hora</th><th>Tipo</th><th>Descrição</th><th>Forma</th><th>Valor</th></tr></thead>
+          <tbody id="caixa-movimentos-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== RELATÓRIOS ===== -->
+    <section class="view" id="view-relatorios">
+      <div class="view-header">
+        <div>
+          <h2>Relatórios</h2>
+          <p class="subtitulo">Filtre por período e exporte</p>
+        </div>
+      </div>
+      <div class="filtros-linha">
+        <label>De <input type="date" id="rel-data-ini"></label>
+        <label>Até <input type="date" id="rel-data-fim"></label>
+        <select id="rel-tipo">
+          <option value="vendas">Vendas por período</option>
+          <option value="produtos-mais-vendidos">Produtos mais vendidos</option>
+          <option value="lucro">Lucro estimado</option>
+          <option value="estoque-baixo">Estoque baixo</option>
+          <option value="mov-estoque">Movimentação de estoque</option>
+          <option value="os-abertas">OS abertas</option>
+          <option value="os-finalizadas">OS finalizadas</option>
+          <option value="servicos-mais-realizados">Serviços mais realizados</option>
+          <option value="faturamento-consertos">Faturamento de consertos</option>
+          <option value="faturamento-total">Faturamento total (vendas + assistência)</option>
+        </select>
+        <button class="btn btn-primary" id="btn-gerar-relatorio">Gerar</button>
+        <button class="btn btn-outline" id="btn-imprimir-relatorio">🖨 Imprimir / PDF</button>
+      </div>
+      <div id="relatorio-resultado" class="card"></div>
+    </section>
+
+    <!-- ===== CONFIGURAÇÕES ===== -->
+    <section class="view" id="view-config">
+      <div class="view-header">
+        <div>
+          <h2>Configurações</h2>
+          <p class="subtitulo">Dados da loja, garantias, usuários e permissões</p>
+        </div>
+      </div>
+      <div class="config-grid">
+        <div class="card">
+          <h3>Dados da loja</h3>
+          <form id="form-config-loja" class="form-grid">
+            <label>Nome da loja<input type="text" id="cfg-nome"></label>
+            <label>CNPJ<input type="text" id="cfg-cnpj"></label>
+            <label>Endereço<input type="text" id="cfg-endereco"></label>
+            <label>WhatsApp/Telefone<input type="text" id="cfg-whatsapp"></label>
+            <label>Garantia padrão produto (dias)<input type="number" id="cfg-garantia-produto" value="30"></label>
+            <label>Garantia padrão conserto (dias)<input type="number" id="cfg-garantia-conserto" value="30"></label>
+            <button type="submit" class="btn btn-primary">Salvar dados da loja</button>
+          </form>
+        </div>
+        <div class="card">
+          <h3>Usuários do sistema</h3>
+          <div class="tabela-wrap">
+            <table class="tabela-padrao">
+              <thead><tr><th>Usuário</th><th>Nível</th><th>Ações</th></tr></thead>
+              <tbody id="usuarios-lista-body"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-ghost" id="btn-novo-usuario">+ Novo usuário</button>
+        </div>
+        <div class="card">
+          <h3>Conexão com Firebase</h3>
+          <p class="texto-pequeno">Status atual: <strong id="cfg-firebase-status">Modo local (localStorage)</strong></p>
+          <p class="texto-pequeno">Configure as credenciais em <code>firebase.js</code> e defina <code>USE_FIREBASE = true</code> para ativar a sincronização em nuvem. Veja o README para o passo a passo.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===================== MODAL GENÉRICO ===================== -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal" id="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-titulo">Título</h3>
+      <button id="modal-fechar">✕</button>
+    </div>
+    <div class="modal-body" id="modal-corpo"></div>
+  </div>
+</div>
+
+<!-- ===================== ÁREA DE IMPRESSÃO ===================== -->
+<div id="print-area" class="print-area"></div>
+ <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script src="firebase.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
