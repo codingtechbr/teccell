@@ -129,10 +129,15 @@
         </div>
         <div id="pdv-sugestoes" class="pdv-sugestoes hidden"></div>
 
+        <div class="pdv-itens-toolbar">
+          <button class="btn btn-ghost btn-sm" id="btn-pdv-tudo-varejo">Tudo Varejo</button>
+          <button class="btn btn-primary btn-sm" id="btn-pdv-tudo-atacado">📦 Vender tudo no Atacado</button>
+        </div>
+
         <div class="pdv-tabela-wrap">
           <table class="pdv-tabela">
             <thead>
-              <tr><th>Produto</th><th>Qtd</th><th>Valor Unit.</th><th>Subtotal</th><th></th></tr>
+              <tr><th>Produto</th><th>Qtd</th><th>Tipo</th><th>Valor Unit.</th><th>Subtotal</th><th></th></tr>
             </thead>
             <tbody id="pdv-itens-body"></tbody>
           </table>
@@ -212,7 +217,7 @@
       </div>
       <div class="tabela-wrap">
         <table class="tabela-padrao">
-          <thead><tr><th>Produto</th><th>Cód. Barras</th><th>Categoria</th><th>Custo</th><th>Venda</th><th>Estoque</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Produto</th><th>Cód. Barras</th><th>Categoria</th><th>Custo</th><th>Venda</th><th>Atacado</th><th>Estoque</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="produtos-lista-body"></tbody>
         </table>
       </div>
