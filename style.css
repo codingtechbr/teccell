@@ -262,6 +262,7 @@ input,select,textarea{font-family:inherit;}
 .pdv-sugestoes{background:#fff;border:1px solid var(--borda);border-radius:8px;margin-bottom:14px;max-height:220px;overflow-y:auto;box-shadow:var(--sombra);}
 .pdv-sugestoes .sugestao-item{padding:10px 14px;display:flex;justify-content:space-between;font-size:13.5px;border-bottom:1px solid var(--borda);}
 .pdv-sugestoes .sugestao-item:hover{background:#f4f6fb;cursor:pointer;}
+.pdv-itens-toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;}
 .pdv-tabela-wrap{border:1px solid var(--borda);border-radius:10px;overflow:hidden;margin-bottom:16px;}
 .pdv-tabela{width:100%;border-collapse:collapse;}
 .pdv-tabela th{background:var(--azul-950);color:var(--texto-claro);text-align:left;font-size:11px;text-transform:uppercase;padding:10px 14px;}
@@ -274,7 +275,7 @@ input,select,textarea{font-family:inherit;}
 .pagto-btn.active{border-color:var(--ambar);background:#fff8ef;color:var(--ambar-esc);}
 .pdv-totais{text-align:right;}
 .pdv-totais span{display:block;font-size:11.5px;color:var(--texto-sec);text-transform:uppercase;}
-.pdv-totais strong{font-family:var(--display);font-size:32px;color:var(--azul-950);}
+.pdv-totais strong{font-family:var(--display);font-size:32px;color:white;}
 .pdv-botoes{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;border-top:1px solid var(--borda);padding-top:16px;}
 
 /* ===================== FORMULÁRIOS / MODAL ===================== */
@@ -392,6 +393,30 @@ i[data-ico="shield"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg x
   }
   body.imprime-relatorio .barra{background:#3a5d8f !important;}
   body.imprime-relatorio .relatorio-rodape-imp{margin-top:22px;font-size:9.5px;text-align:right;color:#555;}
+
+  /* Termo de Venda e Garantia (celular) */
+  body.imprime-relatorio .doc-termo-celular{font-family:'Inter',Arial,sans-serif;}
+  body.imprime-relatorio .termo-cab{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;}
+  body.imprime-relatorio .termo-cab strong{font-size:16px;}
+  body.imprime-relatorio .termo-cab span{font-size:11px;border:1px solid #000;border-radius:4px;padding:3px 8px;}
+  body.imprime-relatorio .doc-termo-celular h1{
+    font-size:18px;text-align:center;text-transform:uppercase;letter-spacing:.4px;font-weight:700;
+    background:#f6d757;padding:8px 0;margin:0 0 16px;border:none;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  body.imprime-relatorio .termo-secao{
+    font-size:12.5px;text-transform:uppercase;font-weight:700;background:#f6d757;
+    display:inline-block;padding:4px 10px;border-radius:2px;margin:16px 0 8px;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  body.imprime-relatorio .termo-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+  body.imprime-relatorio .termo-campo{flex:1 1 45%;border:1px solid #000;border-radius:4px;padding:6px 10px;}
+  body.imprime-relatorio .termo-campo.termo-2{flex-basis:100%;}
+  body.imprime-relatorio .termo-campo span{display:block;font-size:9px;font-weight:700;text-transform:uppercase;color:#444;letter-spacing:.3px;margin-bottom:2px;}
+  body.imprime-relatorio .termo-campo strong{font-size:12px;font-weight:600;word-break:break-word;}
+  body.imprime-relatorio .termo-texto-legal{font-size:10.5px;line-height:1.6;color:#222;margin:0 0 10px;text-align:justify;}
+  body.imprime-relatorio .termo-assinaturas{display:flex;justify-content:space-between;gap:40px;margin-top:50px;}
+  body.imprime-relatorio .termo-assinatura-box{flex:1;border-top:1px solid #000;text-align:center;padding-top:6px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
 }
 
 /* ===========================================================
@@ -659,6 +684,8 @@ body{
   .pdv-cliente-linha,.pdv-busca-produto{display:grid;grid-template-columns:1fr;gap:8px;}
   .pdv-cliente-linha input,.pdv-busca-produto input{min-width:0;width:100%;height:46px;}
   .pdv-cliente-linha .btn,.pdv-busca-produto .btn{width:100%;height:44px;}
+  .pdv-itens-toolbar{flex-direction:column;}
+  .pdv-itens-toolbar .btn{width:100%;}
   .pdv-footer{display:block;}
   .pdv-pagto-opcoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .pagto-btn{height:44px;}
