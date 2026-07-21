@@ -557,7 +557,9 @@ function formularioProduto(produto = {}) {
       <datalist id="lista-marcas-produto">${MARCAS_PRODUTO.map(m => `<option value="${m}">`).join('')}</datalist>
       <label>Modelo<input type="text" id="p-modelo" value="${produto.modelo || ''}"></label>
       <label>Preço de custo (R$)<input type="number" step="0.01" id="p-custo" value="${produto.precoCusto ?? ''}"></label>
-      <label>Preço de venda (R$)*<input type="number" step="0.01" id="p-venda" value="${produto.precoVenda ?? ''}" required></label>
+      <label>Preço de venda — Varejo (R$)*<input type="number" step="0.01" id="p-venda" value="${produto.precoVenda ?? ''}" required></label>
+      <label>Preço de venda — Atacado (R$)<input type="number" step="0.01" id="p-atacado" value="${produto.precoAtacado ?? ''}" placeholder="Deixe em branco se não vender em atacado"></label>
+      <label>Qtd. mínima para valer o preço de atacado<input type="number" id="p-atacado-qtd" min="1" value="${produto.qtdMinAtacado ?? 10}"></label>
       <label>Quantidade em estoque*<input type="number" id="p-estoque" value="${produto.estoque ?? 0}" required></label>
       <label>Estoque mínimo<input type="number" id="p-estoque-min" value="${produto.estoqueMinimo ?? 2}"></label>
       <label>Garantia padrão (dias)<input type="number" id="p-garantia" value="${produto.garantiaDias ?? 30}"></label>
@@ -583,6 +585,8 @@ function abrirModalProduto(produtoExistente = null) {
       modelo: $('#p-modelo').value.trim(),
       precoCusto: parseFloat($('#p-custo').value) || 0,
       precoVenda: parseFloat($('#p-venda').value) || 0,
+      precoAtacado: parseFloat($('#p-atacado').value) || 0,
+      qtdMinAtacado: parseInt($('#p-atacado-qtd').value) || 10,
       estoque: parseInt($('#p-estoque').value) || 0,
       estoqueMinimo: parseInt($('#p-estoque-min').value) || 0,
       garantiaDias: parseInt($('#p-garantia').value) || 30,
@@ -675,13 +679,14 @@ async function renderProdutos(filtro = '') {
       <td>${p.categoria || '—'}</td>
       <td>${formatMoeda(p.precoCusto)}</td>
       <td>${formatMoeda(p.precoVenda)}</td>
+      <td>${p.precoAtacado ? formatMoeda(p.precoAtacado) + (p.qtdMinAtacado ? ` <span style="color:var(--texto-sec);font-size:11px">(≥${p.qtdMinAtacado})</span>` : '') : '—'}</td>
       <td>${p.estoque <= (p.estoqueMinimo||0) ? `<strong style="color:var(--vermelho)">${p.estoque}</strong>` : p.estoque}</td>
       <td><span class="badge ${p.status === 'inativo' ? 'badge-inativo' : 'badge-ativo'}">${p.status === 'inativo' ? 'Inativo' : 'Ativo'}</span></td>
       <td class="acoes-cell">
         <button class="btn btn-sm btn-outline" onclick="abrirModalProduto(${JSON.stringify(p).replace(/"/g, '&quot;')})">Editar</button>
         <button class="btn btn-sm btn-danger" onclick="excluirProduto('${p.id}')">Excluir</button>
       </td>
-    </tr>`).join('') : `<tr><td colspan="8"><div class="vazio-msg">Nenhum produto encontrado.</div></td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="9"><div class="vazio-msg">Nenhum produto encontrado.</div></td></tr>`;
 }
 
 $('#btn-novo-produto').addEventListener('click', () => abrirModalProduto());
@@ -993,11 +998,94 @@ $('#btn-pdv-cadastrar-cliente').addEventListener('click', () => {
 });
 $('#btn-pdv-cadastrar-produto').addEventListener('click', () => abrirModalProduto());
 
+// Considera "celular" qualquer produto cuja categoria contenha essa palavra
+// (bate com "Aparelho (celular)", a categoria sugerida em CATEGORIAS_PRODUTO).
+function ehProdutoCelular(produto) {
+  return (produto?.categoria || '').toLowerCase().includes('celular');
+}
+
 function addItemPDV(produto, qtd = 1) {
+  // Celular: cada unidade tem IMEI/cor próprios, então pedimos esses dados
+  // antes de adicionar (1 aparelho por vez) — eles vão para o Termo de
+  // Venda e Garantia impresso automaticamente ao finalizar a venda.
+  if (ehProdutoCelular(produto)) {
+    abrirModalDadosCelular(produto);
+    return;
+  }
   const existente = state.pdv.itens.find(i => i.produtoId === produto.id);
-  if (existente) existente.qtd += qtd;
-  else state.pdv.itens.push({ produtoId: produto.id, nome: produto.nome, qtd, valorUnit: Number(produto.precoVenda) });
+  if (existente) {
+    existente.qtd += qtd;
+    // Reaplica a regra de atacado/varejo caso a nova quantidade cruze o mínimo
+    aplicarRegraAtacado(existente);
+  } else {
+    state.pdv.itens.push({
+      produtoId: produto.id,
+      nome: produto.nome,
+      qtd,
+      tipoPreco: 'varejo',
+      precoVarejo: Number(produto.precoVenda) || 0,
+      precoAtacado: Number(produto.precoAtacado) || 0,
+      qtdMinAtacado: Number(produto.qtdMinAtacado) || 0,
+      valorUnit: Number(produto.precoVenda) || 0
+    });
+  }
   renderPDVItens();
+}
+
+// Aplica automaticamente o preço de atacado quando a quantidade do item atinge
+// o mínimo configurado no cadastro do produto (e volta pro varejo se cair abaixo).
+function aplicarRegraAtacado(item) {
+  if (!item.qtdMinAtacado || !item.precoAtacado) return;
+  if (item.qtd >= item.qtdMinAtacado && item.tipoPreco !== 'atacado') {
+    item.tipoPreco = 'atacado';
+    item.valorUnit = Number(item.precoAtacado);
+    toast(`"${item.nome}": quantidade atingiu o mínimo de atacado — preço de atacado aplicado.`, 'aviso');
+  } else if (item.qtd < item.qtdMinAtacado && item.tipoPreco === 'atacado') {
+    item.tipoPreco = 'varejo';
+    item.valorUnit = Number(item.precoVarejo);
+    toast(`"${item.nome}": quantidade abaixo do mínimo de atacado — preço de varejo aplicado.`, 'aviso');
+  }
+}
+
+// Troca manualmente entre preço de varejo e atacado de um item já no carrinho
+function trocarTipoPrecoPDV(idx, tipo) {
+  const item = state.pdv.itens[idx];
+  if (!item) return;
+  item.tipoPreco = tipo === 'atacado' ? 'atacado' : 'varejo';
+  item.valorUnit = item.tipoPreco === 'atacado' ? Number(item.precoAtacado) || 0 : Number(item.precoVarejo) || 0;
+  renderPDVItens();
+}
+
+function abrirModalDadosCelular(produto) {
+  abrirModal(`Dados do aparelho — ${produto.nome}`, `
+    <form id="form-item-celular" class="form-grid">
+      <p class="texto-pequeno span2" style="margin:0 0 4px">Esses dados vão para o <strong>Termo de Venda e Garantia</strong>, impresso automaticamente ao finalizar a venda. Cada aparelho é adicionado individualmente, pois cada um tem seu próprio IMEI.</p>
+      <label>Cor<input type="text" id="cel-cor" placeholder="Ex: Azul"></label>
+      <label>IMEI 1*<input type="text" id="cel-imei1" required placeholder="15 dígitos"></label>
+      <label class="span2">IMEI 2 <span style="font-weight:400">(se dual chip, opcional)</span><input type="text" id="cel-imei2" placeholder="Opcional"></label>
+      <button type="submit" class="btn btn-primary span2">Adicionar à venda</button>
+    </form>`);
+  $('#form-item-celular').addEventListener('submit', (e) => {
+    e.preventDefault();
+    state.pdv.itens.push({
+      produtoId: produto.id,
+      nome: produto.nome,
+      qtd: 1,
+      tipoPreco: 'varejo',
+      precoVarejo: Number(produto.precoVenda) || 0,
+      precoAtacado: Number(produto.precoAtacado) || 0,
+      qtdMinAtacado: Number(produto.qtdMinAtacado) || 0,
+      valorUnit: Number(produto.precoVenda),
+      celular: true,
+      cor: $('#cel-cor').value.trim(),
+      imei1: $('#cel-imei1').value.trim(),
+      imei2: $('#cel-imei2').value.trim()
+    });
+    renderPDVItens();
+    fecharModal();
+    toast('Aparelho adicionado. O termo de garantia sai automaticamente ao finalizar a venda.');
+  });
+  setTimeout(() => $('#cel-cor')?.focus(), 50);
 }
 
 $('#pdv-busca-produto').addEventListener('input', (e) => {
@@ -1006,7 +1094,7 @@ $('#pdv-busca-produto').addEventListener('input', (e) => {
   if (!termo) { box.classList.add('hidden'); box.innerHTML=''; return; }
   const achados = state.produtos.filter(p => p.status !== 'inativo' && (p.nome.toLowerCase().includes(termo) || (p.codigoBarras||'').includes(termo))).slice(0, 8);
   box.classList.toggle('hidden', achados.length === 0);
-  box.innerHTML = achados.map(p => `<div class="sugestao-item" data-prod="${p.id}"><span>${p.nome} <span style="color:var(--texto-sec);font-size:12px">(${p.estoque} em estoque)</span></span><strong>${formatMoeda(p.precoVenda)}</strong></div>`).join('');
+  box.innerHTML = achados.map(p => `<div class="sugestao-item" data-prod="${p.id}"><span>${p.nome} <span style="color:var(--texto-sec);font-size:12px">(${p.estoque} em estoque)</span></span><strong>${formatMoeda(p.precoVenda)}${p.precoAtacado ? ` <span style="font-size:11px;color:var(--texto-sec);font-weight:400">/ atacado ${formatMoeda(p.precoAtacado)} (≥${p.qtdMinAtacado})</span>` : ''}</strong></div>`).join('');
   box.querySelectorAll('.sugestao-item').forEach(it => it.addEventListener('click', () => {
     const produto = state.produtos.find(p => p.id === it.dataset.prod);
     addItemPDV(produto);
@@ -1026,18 +1114,76 @@ $('#pdv-busca-produto').addEventListener('keydown', (e) => {
 function renderPDVItens() {
   const itens = state.pdv.itens;
   $('#pdv-vazio').classList.toggle('hidden', itens.length > 0);
-  $('#pdv-itens-body').innerHTML = itens.map((it, idx) => `
+  $('#pdv-itens-body').innerHTML = itens.map((it, idx) => {
+    const temAtacado = it.produtoId && Number(it.precoAtacado) > 0;
+    const tipoCel = temAtacado
+      ? `<select onchange="trocarTipoPrecoPDV(${idx}, this.value)" style="padding:4px 6px;border:1px solid var(--borda);border-radius:8px;font-size:12.5px">
+           <option value="varejo" ${it.tipoPreco !== 'atacado' ? 'selected' : ''}>Varejo</option>
+           <option value="atacado" ${it.tipoPreco === 'atacado' ? 'selected' : ''}>Atacado${it.qtdMinAtacado ? ' (≥' + it.qtdMinAtacado + ')' : ''}</option>
+         </select>`
+      : `<span style="font-size:12px;color:var(--texto-sec)">Varejo</span>`;
+    return `
     <tr>
-      <td>${it.nome}</td>
-      <td><input type="number" min="1" value="${it.qtd}" onchange="alterarQtdPDV(${idx}, this.value)"></td>
+      <td>${it.nome}${it.celular ? `<br><span style="font-size:11px;color:var(--texto-sec)">${it.cor ? it.cor + ' · ' : ''}IMEI ${it.imei1 || '—'}</span>` : ''}</td>
+      <td><input type="number" min="1" value="${it.qtd}" ${it.celular ? 'disabled title="Cada aparelho é adicionado individualmente, com seu próprio IMEI"' : ''} onchange="alterarQtdPDV(${idx}, this.value)"></td>
+      <td>${tipoCel}</td>
       <td>${formatMoeda(it.valorUnit)}</td>
       <td>${formatMoeda(it.qtd * it.valorUnit)}</td>
       <td><button class="btn btn-sm btn-danger" onclick="removerItemPDV(${idx})">✕</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   const total = itens.reduce((s, i) => s + i.qtd * i.valorUnit, 0);
   $('#pdv-total').textContent = formatMoeda(total);
 }
-function alterarQtdPDV(idx, val) { state.pdv.itens[idx].qtd = Math.max(1, parseInt(val) || 1); renderPDVItens(); }
+// Troca de uma vez todos os itens do carrinho que têm preço de atacado
+// cadastrado para o tipo "atacado" (ignora a quantidade mínima — é uma
+// escolha manual do operador, ex: cliente revendedor levando pouca coisa).
+function trocarCarrinhoParaAtacado() {
+  const itens = state.pdv.itens;
+  if (!itens.length) { toast('Adicione itens à venda primeiro.', 'aviso'); return; }
+  let trocados = 0;
+  itens.forEach(it => {
+    if (!it.produtoId) return;
+    // Busca o preço de atacado ATUAL do produto — o item no carrinho pode ter
+    // sido adicionado antes de o preço de atacado ser cadastrado/editado.
+    const produto = state.produtos.find(p => p.id === it.produtoId);
+    const precoAtacadoAtual = Number(produto?.precoAtacado) || 0;
+    if (precoAtacadoAtual > 0) {
+      it.precoAtacado = precoAtacadoAtual;
+      it.qtdMinAtacado = Number(produto?.qtdMinAtacado) || 0;
+      it.tipoPreco = 'atacado';
+      it.valorUnit = precoAtacadoAtual;
+      trocados++;
+    }
+  });
+  renderPDVItens();
+  if (trocados > 0) toast(`Preço de atacado aplicado em ${trocados} item(ns).`);
+  else toast('Nenhum item da venda tem preço de atacado cadastrado no produto.', 'aviso');
+}
+
+// Volta todos os itens do carrinho para o preço de varejo.
+function trocarCarrinhoParaVarejo() {
+  const itens = state.pdv.itens;
+  if (!itens.length) { toast('Adicione itens à venda primeiro.', 'aviso'); return; }
+  itens.forEach(it => {
+    if (it.tipoPreco === 'atacado') {
+      it.tipoPreco = 'varejo';
+      it.valorUnit = Number(it.precoVarejo) || it.valorUnit;
+    }
+  });
+  renderPDVItens();
+  toast('Preço de varejo aplicado a todos os itens.');
+}
+$('#btn-pdv-tudo-atacado').addEventListener('click', trocarCarrinhoParaAtacado);
+$('#btn-pdv-tudo-varejo').addEventListener('click', trocarCarrinhoParaVarejo);
+
+function alterarQtdPDV(idx, val) {
+  const item = state.pdv.itens[idx];
+  if (!item) return;
+  item.qtd = Math.max(1, parseInt(val) || 1);
+  aplicarRegraAtacado(item);
+  renderPDVItens();
+}
 function removerItemPDV(idx) { state.pdv.itens.splice(idx, 1); renderPDVItens(); }
 
 $('#btn-pdv-item-avulso').addEventListener('click', () => {
@@ -1055,15 +1201,23 @@ $('#btn-pdv-item-avulso').addEventListener('click', () => {
   });
 });
 
+function selecionarProdutoDaLista(produtoId) {
+  const produto = state.produtos.find(p => p.id === produtoId);
+  if (!produto) return;
+  addItemPDV(produto);
+  // Para celular, addItemPDV abre o modal de IMEI/cor por cima — não fechar.
+  if (!ehProdutoCelular(produto)) fecharModal();
+}
+
 $('#btn-pdv-lista-produtos').addEventListener('click', () => {
   const ativos = state.produtos.filter(p => p.status !== 'inativo');
   abrirModal('Lista de produtos', `
     <input type="text" id="lp-busca" placeholder="Filtrar..." style="width:100%;padding:10px;border:1px solid var(--borda);border-radius:8px;margin-bottom:12px;">
     <div id="lp-lista" class="tabela-wrap" style="max-height:400px;overflow:auto;">
-      <table class="tabela-padrao"><thead><tr><th>Produto</th><th>Preço</th><th>Estoque</th><th></th></tr></thead>
+      <table class="tabela-padrao"><thead><tr><th>Produto</th><th>Varejo</th><th>Atacado</th><th>Estoque</th><th></th></tr></thead>
       <tbody>${ativos.map(p => `<tr data-nome="${p.nome.toLowerCase()}">
-        <td>${p.nome}</td><td>${formatMoeda(p.precoVenda)}</td><td>${p.estoque}</td>
-        <td><button class="btn btn-sm btn-primary" onclick='addItemPDV(${JSON.stringify(p).replace(/"/g,'&quot;')});fecharModal();'>Adicionar</button></td>
+        <td>${p.nome}</td><td>${formatMoeda(p.precoVenda)}</td><td>${p.precoAtacado ? formatMoeda(p.precoAtacado) + ` <span style="color:var(--texto-sec);font-size:11px">(≥${p.qtdMinAtacado})</span>` : '—'}</td><td>${p.estoque}</td>
+        <td><button class="btn btn-sm btn-primary" onclick='selecionarProdutoDaLista("${p.id}")'>Adicionar</button></td>
       </tr>`).join('')}</tbody></table>
     </div>`, { grande: true });
   $('#lp-busca').addEventListener('input', (e) => {
@@ -1218,7 +1372,62 @@ function imprimirReciboVenda(venda) {
       <p style="font-size:11px;color:#666">Garantia do(s) produto(s) até ${apenasData(dataFinal)} (${venda.garantiaDias} dias), conforme termo de garantia.</p>
       <div class="rodape-recibo">Obrigado pela preferência! 💙</div>
     </div>`);
-  setTimeout(() => imprimirTermoGarantiaProduto(venda), 400);
+  // Aparelho(s) de celular na venda: imprime o Termo de Venda e Garantia
+  // específico (um por aparelho, cada um com seu IMEI). Sem celular na
+  // venda, mantém o termo de garantia genérico de sempre.
+  const itensCelular = (venda.itens || []).filter(i => i.celular);
+  if (itensCelular.length) {
+    itensCelular.forEach((item, idx) => {
+      setTimeout(() => imprimirTermoVendaGarantiaCelular(venda, item), 500 * (idx + 1));
+    });
+  } else {
+    setTimeout(() => imprimirTermoGarantiaProduto(venda), 400);
+  }
+}
+
+// Termo de Venda e Garantia para aparelhos celulares — impresso em folha A4
+// (não na bobina de 80mm), com os dados do cliente e do aparelho já preenchidos.
+function imprimirTermoVendaGarantiaCelular(venda, item) {
+  const cliente = state.clientes.find(c => c.id === venda.clienteId);
+  const loja = state.config.nome || 'Minha Loja';
+  $('#print-area').innerHTML = `
+    <div class="doc-imp doc-termo-celular">
+      <div class="termo-cab">
+        <strong>${loja}</strong>
+        <span>DATA: ${apenasData(venda.criadoEm || hojeISO())}</span>
+      </div>
+      <h1>TERMO DE VENDA E GARANTIA</h1>
+
+      <div class="termo-secao">DADOS PESSOAIS</div>
+      <div class="termo-grid">
+        <div class="termo-campo termo-2"><span>Nome</span><strong>${venda.clienteNome || cliente?.nome || '—'}</strong></div>
+        <div class="termo-campo"><span>Telefone</span><strong>${cliente?.telefone || cliente?.whatsapp || '—'}</strong></div>
+        <div class="termo-campo"><span>CPF/CNPJ</span><strong>${cliente?.documento || '—'}</strong></div>
+        <div class="termo-campo termo-2"><span>Endereço</span><strong>${cliente?.endereco || '—'}</strong></div>
+      </div>
+
+      <div class="termo-secao">DADOS DO APARELHO</div>
+      <div class="termo-grid">
+        <div class="termo-campo termo-2"><span>Modelo</span><strong>${item.nome}</strong></div>
+        <div class="termo-campo"><span>Cor</span><strong>${item.cor || '—'}</strong></div>
+        <div class="termo-campo"><span>Valor</span><strong>${formatMoeda(item.valorUnit * item.qtd)}</strong></div>
+        <div class="termo-campo"><span>IMEI 1</span><strong>${item.imei1 || '—'}</strong></div>
+        <div class="termo-campo"><span>IMEI 2</span><strong>${item.imei2 || '—'}</strong></div>
+        <div class="termo-campo termo-2"><span>Forma de pagamento</span><strong>${venda.formaPagamento || '—'}</strong></div>
+      </div>
+
+      <div class="termo-secao">SOBRE A GARANTIA LEGAL</div>
+      <p class="termo-texto-legal">O aparelho adquirido possui garantia de 1 (um) ano, oferecida diretamente pelo fabricante, contada a partir do primeiro login com conta Google (Gmail) no dispositivo, que ativa automaticamente a garantia. Toda e qualquer solicitação de suporte técnico, assistência, manutenção ou orientação relacionada à garantia deverá ser feita diretamente à autorizada do fabricante. Esta loja não possui vínculo com a assistência técnica ou com o processo de garantia — após a venda, defeitos de fabricação devem ser tratados exclusivamente com a autorizada do fabricante. A garantia cobre apenas defeitos de fabricação.</p>
+      <p class="termo-texto-legal">Danos causados por mau uso, quedas, contato com líquidos ou modificações não autorizadas não são cobertos pela garantia. É recomendável guardar este termo e a caixa do aparelho como comprovante, caso solicitado pelo fabricante.</p>
+      <p class="termo-texto-legal">Conforme o Código de Defesa do Consumidor (Lei nº 8.078/90), art. 18, o fornecedor ou fabricante tem prazo de até 30 (trinta) dias corridos para solucionar defeito coberto pela garantia legal, contado a partir da entrada do aparelho na assistência técnica autorizada.</p>
+
+      <div class="termo-assinaturas">
+        <div class="termo-assinatura-box">Assinatura do comprador</div>
+        <div class="termo-assinatura-box">Assinatura do vendedor</div>
+      </div>
+    </div>`;
+  document.body.classList.add('imprime-relatorio');
+  window.print();
 }
 
 function imprimirTermoGarantiaProduto(venda) {
